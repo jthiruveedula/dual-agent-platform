@@ -60,3 +60,32 @@ The lesson store is not a vector index. It is intentionally simple. Repo-level r
 - Rotate or archive old JSONL files periodically; retention is a deployment policy.
 - Never check memory files into git.
 - Tests must use a temp `DAP_MEMORY_DIR` (see `tests/memory/`).
+
+
+## Memory loop
+
+```mermaid
+flowchart LR
+    P[Architect plans] --> RR[lesson_retriever]
+    RR -->|prior lessons| P
+    P --> B[Builder]
+    B -->|failure| LW[lesson_writer]
+    LW --> MS[(memory_store JSONL)]
+    MS --> RR
+```
+
+## Lesson lifecycle
+
+```mermaid
+stateDiagram-v2
+    [*] --> StepRunning
+    StepRunning --> Success: ToolResult ok
+    StepRunning --> Failure: exception or non-success
+    Failure --> RecordError
+    RecordError --> WriteLesson
+    WriteLesson --> Persisted
+    Persisted --> [*]
+    Success --> [*]
+    Persisted --> Retrieved: next plan
+    Retrieved --> [*]
+```
