@@ -105,7 +105,7 @@ The platform writes lessons to append-only JSONL memory under `$DAP_MEMORY_DIR`.
 
 ```text
 agents/           # Architect, Builder, GCP DE Agent, Story Orchestration Agent
-docs/             # Usage, architecture, agents, safety, memory, development
+docs/             # Usage, architecture, agents, safety, memory, tools, testing, release, dev
 prompts/          # System prompts and skill prompts
 tests/            # Safety, memory, smoke e2e, and core contract tests
 tools/
@@ -143,7 +143,10 @@ Well suited to:
 | Agents | [`docs/agents.md`](docs/agents.md) |
 | Safety and approvals | [`docs/safety.md`](docs/safety.md) |
 | Memory and self-correction | [`docs/memory-and-self-correction.md`](docs/memory-and-self-correction.md) |
+| Tools and reducers | [`docs/tools.md`](docs/tools.md) |
+| Testing | [`docs/testing.md`](docs/testing.md) |
 | Development | [`docs/development.md`](docs/development.md) |
+| Release process | [`docs/release-process.md`](docs/release-process.md) |
 
 ## Development
 
