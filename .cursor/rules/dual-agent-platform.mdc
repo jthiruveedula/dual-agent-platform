@@ -1,0 +1,35 @@
+---
+description: Dual-agent platform rules for Cursor
+alwaysApply: true
+---
+
+# Dual-Agent Platform Rules
+
+## Tool-First Decision Policy (HARD RULE)
+Before writing any code, follow this order:
+1. Check `tools/gcp/` and `tools/integrations/` for an existing function.
+2. Check registered MCP servers / integrations.
+3. Use `tools/core/` shared contracts for new logic.
+4. Only as a last resort, propose a permanent implementation under `tools/` (NOT a one-off script).
+
+Do NOT generate ad-hoc Python scripts for routine GCP/SDLC actions.
+
+## Code Quality Bar
+- Python 3.11+, full type hints, dataclasses/enums for contracts.
+- Public functions documented with Google-style docstrings.
+- All tool functions return `ToolResult` from `tools/core/contracts.py`.
+- No secrets in code; use env vars / Secret Manager.
+- Tests under `tests/` mirror module path; pytest-ready.
+
+## Safety
+- Destructive ops (DELETE, DROP, OVERWRITE, force-merge) require explicit user confirmation.
+- Never assume prod. Default to dev/sandbox.
+- Never commit credentials.
+
+## Output Style
+Return structured outputs: action, resources, summary, evidence, next_steps. Avoid long chain-of-thought.
+
+## Token Efficiency
+- Prefer stable tool contracts; do not inline large schemas/logs.
+- Cite resource IDs (table FQNs, GCS URIs, Jira keys, PR URLs) instead of bodies.
+
