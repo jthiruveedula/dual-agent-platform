@@ -70,3 +70,36 @@ Plan and report schemas are stable in spirit but versioned alongside `tools/core
 - Summarization, classification, or reduction => reducer.
 - Free-form interpretation or translation => prompt.
 - If a prompt path is repeatedly used for the same task, promote it to a skill or a tool.
+
+
+## Agent map
+
+```mermaid
+flowchart LR
+    A[Architect] -->|plan.json| B[Builder]
+    B -->|GCP tasks| GDE[GCP Data Engineering Agent]
+    B -->|SDLC tasks| SOA[Story Orchestration Agent]
+    GDE --> GCP[(GCP services)]
+    SOA --> JIRA[(Jira / Confluence / GitHub)]
+```
+
+## Agent boundaries
+
+```mermaid
+flowchart TB
+    subgraph Plan_Layer
+      A[Architect]
+    end
+    subgraph Execute_Layer
+      B[Builder]
+    end
+    subgraph Domain_Agents
+      GDE[GCP DE Agent]
+      SOA[Story Orchestration Agent]
+    end
+    A -- never executes --> B
+    B -- delegates --> GDE
+    B -- delegates --> SOA
+    GDE -- ToolResult --> B
+    SOA -- ToolResult --> B
+```
