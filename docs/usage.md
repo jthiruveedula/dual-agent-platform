@@ -69,3 +69,43 @@ Operations classified as `requires_approval` will block until an approval token 
 | Builder hangs on approval | Missing approval token | Provide token or downgrade verb |
 | No lessons retrieved | `DAP_MEMORY_DIR` mismatch | Align env var with prior runs |
 | `ruff` fails in CI | Lint drift | `ruff check . --fix` locally |
+
+
+## End-to-end usage flow
+
+```mermaid
+sequenceDiagram
+    participant Dev as Developer
+    participant CLI
+    participant Architect
+    participant Builder
+    participant Tools
+    participant Memory
+
+    Dev->>CLI: python -m agents.architect --goal "..."
+    CLI->>Architect: run
+    Architect->>Memory: retrieve_relevant(tags)
+    Memory-->>Architect: lessons
+    Architect-->>CLI: plan.json
+    Dev->>CLI: python -m agents.builder --plan plan.json
+    CLI->>Builder: run
+    loop each step
+      Builder->>Tools: execute (via safety chain)
+      Tools-->>Builder: ToolResult
+      alt failure
+        Builder->>Memory: write_lesson
+      end
+    end
+    Builder-->>Dev: aggregate report
+```
+
+## Local environments
+
+```mermaid
+flowchart LR
+    Local[DAP_ENV=local] --> Memory1[(./memory)]
+    Dev[DAP_ENV=dev] --> Memory2[(shared dev memory)]
+    QA[DAP_ENV=qa] --> Memory3[(qa memory)]
+    Lower[DAP_ENV=lower] --> Memory4[(lower memory)]
+    Prod[DAP_ENV=prod] -.read-only.-> Memory5[(prod memory)]
+```
