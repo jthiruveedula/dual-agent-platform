@@ -88,3 +88,34 @@ See [testing.md](testing.md).
 - Use fakes/dependency injection rather than network mocks where possible.
 - Keep fakes minimal and colocated under `tests/`.
 - Never bake real credentials, project IDs, or tenant IDs into fixtures.
+
+
+## Dev workflow
+
+```mermaid
+flowchart LR
+    Clone[git clone] --> Venv[python -m venv .venv]
+    Venv --> Install[pip install -e .]
+    Install --> Edit[Edit code]
+    Edit --> Lint[ruff check .]
+    Lint --> Test[pytest -q]
+    Test -->|pass| Commit[git commit]
+    Test -->|fail| Edit
+    Commit --> Push[git push]
+    Push --> CI[GitHub Actions: Ruff + pytest]
+```
+
+## Contribution lifecycle
+
+```mermaid
+stateDiagram-v2
+    [*] --> Branch
+    Branch --> Implement
+    Implement --> LocalChecks
+    LocalChecks --> PR: lint + tests pass
+    LocalChecks --> Implement: fix
+    PR --> Review
+    Review --> Implement: changes requested
+    Review --> Merge: approved
+    Merge --> [*]
+```
