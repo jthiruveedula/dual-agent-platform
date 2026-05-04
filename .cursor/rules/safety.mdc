@@ -1,0 +1,16 @@
+---
+description: Safety rules for any code touching tools/safety, tools/gcp, or mutating actions.
+globs: tools/safety/**, tools/gcp/**, agents/**
+alwaysApply: true
+---
+
+# Safety Rules (always-apply)
+
+1. **Never weaken `tools/safety/*`.** Do not edit policy_guard, approval_gate, or dangerous_action_guard to remove checks. Adding checks is fine.
+2. **Every mutating call** must go through `policy_guard.evaluate_action` then `approval_gate.request_approval` before executing.
+3. **Decorate executors** with `@dangerous_action_guard` for any function that performs writes.
+4. **No secrets in code.** Never inline API keys, tokens, or passwords. Use env vars and redact before logging.
+5. **No silent retries** beyond 2 attempts; classify with `error_classifier` and surface to operator.
+6. **Tests required.** Any change under `tools/safety/` requires accompanying tests in `tests/safety/`.
+7. **No new top-level deps** without updating `pyproject.toml` and noting in PR description.
+8. **Reducer-first I/O.** Wrap large outputs with `artifact_packager` before returning to an agent.
