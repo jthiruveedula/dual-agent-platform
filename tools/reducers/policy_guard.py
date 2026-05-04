@@ -98,3 +98,58 @@ def evaluate(
 
 __all__ = ["PolicyDecision", "evaluate", "DESTRUCTIVE_VERBS"]
 
+
+
+# ---------------------------------------------------------------------------
+# Compatibility shims used by tests and higher-level reducers.
+# Keep these stable; they wrap `evaluate(...)` into dict-shaped responses.
+# ---------------------------------------------------------------------------
+
+
+def evaluate_action(action: dict) -> dict:
+    """Evaluate an action dict and return a decision dict.
+
+    Expected keys: ``type`` (verb, e.g. ``bq.delete_table``) and ``target``.
+    Returns: ``{"decision": "deny"|"allow", "requires_approval": bool, "reasons": [...], "severity": str}``.
+    """
+    verb = str(action.get("type", "")).split(".", 1)[-1]
+    target = str(action.get("target", ""))
+    env = str(action.get("environment", "dev"))
+    decision = evaluate(action=verb, target=target, environment=env)
+    if not decision.allow:
+        decision_str = "deny"
+    else:
+        decision_str = "allow"
+    return {
+        "decision": decision_str,
+        "requires_approval": bool(decision.requires_approval),
+        "reasons": list(decision.reasons),
+        "severity": decision.severity,
+    }
+
+
+def classify_step(step: dict) -> dict:
+    """Classify a plan step into ``allow|approval|deny``.
+
+    Step shape: ``{"id": str, "tool": "bq.delete_table", "args": {...}}``.
+    """
+    tool = str(step.get("tool", ""))
+    verb = tool.split(".", 1)[-1] if "." in tool else tool
+    args = step.get("args", {}) or {}
+    target = str(args.get("table") or args.get("dataset") or args.get("target") or "")
+    env = str(args.get("environment", "dev"))
+    decision = evaluate(action=verb, target=target, environment=env)
+    if not decision.allow:
+        label = "deny"
+    elif decision.requires_approval:
+        label = "approval"
+    else:
+        label = "allow"
+    return {
+        "id": step.get("id"),
+        "tool": tool,
+        "decision": label,
+        "requires_approval": bool(decision.requires_approval),
+        "reasons": list(decision.reasons),
+        "severity": decision.severity,
+    }
