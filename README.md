@@ -81,13 +81,6 @@ python -m agents.architect --goal "Backfill BQ table x.y for last 7 days"
 python -m agents.builder --plan plan.json
 ```
 
-For operational details, see:
-
-- [`docs/usage.md`](docs/usage.md)
-- [`docs/architecture.md`](docs/architecture.md)
-- [`docs/safety.md`](docs/safety.md)
-- [`docs/memory-and-self-correction.md`](docs/memory-and-self-correction.md)
-
 ## How it works
 
 ### 1. Plan with context
@@ -112,7 +105,7 @@ The platform writes lessons to append-only JSONL memory under `$DAP_MEMORY_DIR`.
 
 ```text
 agents/           # Architect, Builder, GCP DE Agent, Story Orchestration Agent
-docs/             # Usage, architecture, safety, memory, tools, testing, release docs
+docs/             # Usage, architecture, agents, safety, memory, development
 prompts/          # System prompts and skill prompts
 tests/            # Safety, memory, smoke e2e, and core contract tests
 tools/
@@ -147,13 +140,10 @@ Well suited to:
 | --- | --- |
 | Usage and commands | [`docs/usage.md`](docs/usage.md) |
 | Architecture | [`docs/architecture.md`](docs/architecture.md) |
-| Development | [`docs/development.md`](docs/development.md) |
+| Agents | [`docs/agents.md`](docs/agents.md) |
 | Safety and approvals | [`docs/safety.md`](docs/safety.md) |
 | Memory and self-correction | [`docs/memory-and-self-correction.md`](docs/memory-and-self-correction.md) |
-| Agents | [`docs/agents.md`](docs/agents.md) |
-| Tools and reducers | [`docs/tools.md`](docs/tools.md) |
-| Testing | [`docs/testing.md`](docs/testing.md) |
-| Release process | [`docs/release-process.md`](docs/release-process.md) |
+| Development | [`docs/development.md`](docs/development.md) |
 
 ## Development
 
