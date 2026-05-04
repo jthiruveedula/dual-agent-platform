@@ -103,3 +103,45 @@ See [development.md](development.md).
 ## Roadmap
 
 Pre-release. Stubs are marked in code comments. Public contracts (`ToolResult`, plan JSON, policy table) are stable in spirit but may evolve before v1.0.
+
+
+## Visual overview
+
+```mermaid
+flowchart TD
+    G[Goal] --> A[Architect]
+    M[(Memory: lessons)] --> A
+    A --> P[plan.json]
+    P --> B[Builder]
+    B --> PG[policy_guard]
+    PG --> AG[approval_gate]
+    AG --> DG[dangerous_action_guard]
+    DG --> TL[tools/* gcp / integrations / core]
+    TL --> TR[ToolResult]
+    TR --> RD[reducers]
+    RD --> EV[evidence]
+    EV --> B
+    B --> LW[lesson writer]
+    LW --> M
+```
+
+```mermaid
+flowchart LR
+    subgraph Plan
+      A[Architect]
+    end
+    subgraph Execute
+      B[Builder]
+      G1[policy_guard]
+      G2[approval_gate]
+      G3[dangerous_action_guard]
+    end
+    subgraph Tools
+      T1[gcp]
+      T2[integrations]
+      T3[core]
+    end
+    A --> B --> G1 --> G2 --> G3 --> T1
+    G3 --> T2
+    G3 --> T3
+```
