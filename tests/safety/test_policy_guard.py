@@ -7,8 +7,6 @@ from __future__ import annotations
 
 import importlib
 
-import pytest
-
 pg = importlib.import_module("tools.reducers.policy_guard")
 
 
