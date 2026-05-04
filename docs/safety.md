@@ -90,3 +90,54 @@ A human reviewer issues an approval token referencing the payload hash. Tokens a
 - Composite tools that internally call destructive verbs.
 
 If you find a path that bypasses the gate, file a security report (see [SECURITY.md](../SECURITY.md)).
+
+
+## Safety chain (visual)
+
+```mermaid
+flowchart LR
+    S[Mutating tool call] --> PG[policy_guard]
+    PG -->|allow| TL[Execute tool]
+    PG -->|requires_approval| AG[approval_gate]
+    PG -->|deny| X[Reject]
+    AG -->|valid token| DG[dangerous_action_guard]
+    AG -->|missing token| X
+    DG -->|token verified| TL
+    DG -->|invalid| X
+```
+
+## Decision states
+
+```mermaid
+stateDiagram-v2
+    [*] --> Classify
+    Classify --> Allow: read / list / get
+    Classify --> RequireApproval: item-scope destructive
+    Classify --> Deny: dataset-scope destructive
+    Classify --> RequireApproval: unknown verb
+    Allow --> Execute
+    RequireApproval --> AwaitToken
+    AwaitToken --> Execute: token supplied
+    AwaitToken --> Deny: timeout / refusal
+    Execute --> [*]
+    Deny --> [*]
+```
+
+## Approval flow
+
+```mermaid
+sequenceDiagram
+    participant Builder
+    participant PolicyGuard as policy_guard
+    participant ApprovalGate as approval_gate
+    participant DangerGuard as dangerous_action_guard
+    participant Tool
+
+    Builder->>PolicyGuard: classify(step)
+    PolicyGuard-->>Builder: requires_approval
+    Builder->>ApprovalGate: request_approval(payload)
+    ApprovalGate-->>Builder: approval_token
+    Builder->>DangerGuard: invoke(tool, token)
+    DangerGuard->>Tool: call
+    Tool-->>Builder: ToolResult
+```
