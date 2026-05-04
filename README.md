@@ -1,118 +1,94 @@
 # dual-agent-platform
 
-Dual-agent platform combining a **GCP Data Engineering Agent** and a **Story Orchestration Agent** with a strict tool-first execution model, low token usage, and reusable orchestration patterns. Designed to work in Claude Code, Cursor, and GitHub Copilot via repository-level instructions and modular rule files.
+Tool-first, safety-gated dual-agent platform for GCP data engineering and SDLC story orchestration. Designed to run inside Claude Code, Cursor, and GitHub Copilot via repository-level instructions, with an auditable Architect -> Builder runtime, deterministic policy guards, and a JSONL lesson memory.
 
-## Core Operating Principle
+## Why this exists
 
-Do NOT generate one-off Python programs for routine cloud or data engineering actions when an existing tool/function can be used. Prefer calling prebuilt Python tools and MCP integrations. Generate new code only when:
+Most LLM agents regenerate ad hoc Python for every task. That is slow, expensive, unsafe, and impossible to audit. This repo enforces the opposite default: **call prebuilt, tested tools first; generate code only when no tool fits**. Risky operations are classified, gated, and logged.
 
-- a required capability does not exist,
-- the user explicitly asks for a new tool, or
-- the repository pattern requires a permanent implementation.
+## Key capabilities
 
-## Repository Layout
+- **Architect + Builder runtime** with structured plan handoff.
+- **Domain agents**: GCP Data Engineering Agent and Story Orchestration Agent.
+- **Deterministic safety stack**: `policy_guard` -> `approval_gate` -> `dangerous_action_guard`.
+- **JSONL lesson memory** with retrieve-before-plan and write-on-failure.
+- **Reducers** that compress prompts (schemas, logs, errors, repo indexes, SQL templates).
+- **CI**: Ruff + pytest on every push.
+
+## Architecture at a glance
+
+Architect emits a plan; Builder executes each step through the safety chain (`policy_guard` -> `approval_gate` -> `dangerous_action_guard`) into the shared tool layer. Lessons flow back through `memory/` for retrieval on the next plan. Deeper detail: [docs/architecture.md](docs/architecture.md).
+
+## Repository layout
 
 ```
-agents/
-  gcp_data_engineering_agent/   # Agent 1 - GCP & data ops
-  story_orchestration_agent/    # Agent 2 - SDLC orchestration
+agents/        # Architect, Builder, GCP DE Agent, Story Orchestration Agent
 tools/
-  core/                         # Shared contracts (ToolResult, RiskLevel, confirmation policy)
-  gcp/                          # bq, gcs, logging, cloud_run, vertex, discovery_engine
-  integrations/                 # jira, confluence, github, mcp
-skills/                         # Reusable capability bundles
-prompts/                        # System & sub-agent prompts
-tests/                          # Unit tests for agents & tools
-.cursor/rules/                  # Cursor rule files
-.github/copilot-instructions.md # Copilot repo-level instructions
+  core/        # Shared contracts (ToolResult, RiskLevel)
+  gcp/         # bq, gcs, logging, cloud_run, vertex, discovery_engine
+  integrations/# jira, confluence, github, mcp
+  reducers/    # policy_guard, schema_fingerprint, log_clusterer, ...
+  safety/      # approval_gate, dangerous_action_guard, policies.json
+  memory/      # memory_store, lesson_writer, lesson_retriever
+prompts/       # System and skill prompts
+tests/         # safety, memory, smoke e2e, core contracts
+.cursor/rules/ # Cursor rule files
+.github/       # Copilot instructions, CI workflow
 ```
-
-## Agent 1: GCP Data Engineering Agent
-
-Domains: GCS, BigQuery, Cloud Logging, Cloud Run, Discovery Engine, Vertex AI, IAM-aware ops.
-
-Rules:
-- Use existing Python tool wrappers first.
-- Treat tools as the execution boundary; the LLM is planner/interpreter.
-- Return structured outputs: action, resources, summary, evidence, next steps.
-- Risky operations require explicit confirmation. Prefer idempotent operations.
-
-## Agent 2: Story Orchestration Agent
-
-Connected systems: Jira, Confluence, Git/GitHub, MCP services, GCP Data Engineering Agent.
-
-Responsibilities: read story → plan → delegate cloud ops → implement → test → collect evidence → PR → lower-env deploy → status updates.
-
-## Tool-First Decision Policy
-
-1. Does a tool already exist?
-2. Can MCP or an approved integration handle this?
-3. Is this a reusable capability worth adding to the shared tool layer?
-4. Is ad hoc code truly necessary?
-
-Default to tool usage over generated scripts.
-
-## Safety Policy
-
-- Confirmation required before destructive changes.
-- Read-only / write / deploy / delete actions are distinguished via `RiskLevel`.
-- Environment boundaries respected: `local`, `dev`, `qa`, `lower`, `prod`. Never assume prod access.
 
 ## Quickstart
 
 ```bash
 pip install -e .
 pytest -q
-```
-
-See `prompts/` for the system prompts, `.cursor/rules/` for Cursor configuration, and `.github/copilot-instructions.md` for Copilot.
-
-
-## Platform Runtime: Architect + Builder
-
-In addition to the GCP Data Engineering and Story Orchestration agents, this repo ships a generic safety-first dual-agent runtime:
-
-- `agents/architect/` — plans a goal into structured steps, retrieves prior lessons, and routes risky steps to approval.
-- `agents/builder/` — executes plan steps via the shared tool layer, gated by `policy_guard` -> `approval_gate` -> `dangerous_action_guard`.
-
-```bash
 python -m agents.architect --goal "Backfill BQ table x.y for last 7 days"
-python -m agents.builder --plan plan.json
+python -m agents.builder   --plan plan.json
 ```
 
-## Safety Stack
+Full operational guide: [docs/usage.md](docs/usage.md).
 
-- `tools/reducers/policy_guard.py` — deterministic classifier (`evaluate`, `evaluate_action`, `classify_step`).
-- `tools/safety/approval_gate.py` — surfaces an approval comment for human sign-off.
-- `tools/safety/dangerous_action_guard.py` — decorator that blocks destructive ops without an approval token.
-- `tools/safety/policies.json` — declarative policy table consumed by the guard.
+## Safety and approval model
 
-Default policy semantics:
+Every mutating action is classified by `policy_guard` and must pass `approval_gate` and `dangerous_action_guard`. Dataset-scope destructive ops are denied by default; item-scope destructive ops require approval; unknown verbs fail closed. See [docs/safety.md](docs/safety.md).
 
-- Dataset-scope destructive ops (drop_dataset, delete_dataset) -> `deny`.
-- Item-scope destructive ops (delete_table, truncate, alter, set-iam-policy) -> `allow` + `requires_approval=True`.
-- Read/list/get/describe/query -> `allow`.
-- Unknown verbs -> `allow` + `requires_approval=True` (fail-closed on intent).
+## Memory and self-correction
 
-## Memory (JSONL)
+Agents retrieve relevant lessons before planning and write a lesson on every failure. Memory is append-only JSONL under `$DAP_MEMORY_DIR`. See [docs/memory-and-self-correction.md](docs/memory-and-self-correction.md).
 
-- `tools/memory/memory_store.py` — append-only JSONL store under `$DAP_MEMORY_DIR` (default `./memory/`).
-- `tools/memory/lesson_writer.py` — `write_lesson(title, context, lesson, tags, store=...)`, `record_error(...)`.
-- `tools/memory/lesson_retriever.py` — `retrieve_relevant(tags=..., limit=5, store=...)`, `should_block_repeat(signature, threshold=3)`.
+## Development
 
-Agents retrieve lessons before planning and write lessons on failure to avoid repeating known-broken paths.
+- Local dev, lint, and test workflow: [docs/development.md](docs/development.md)
+- Adding tools, reducers, skills, memory schemas, indexes, or agent capabilities: [docs/development.md](docs/development.md)
+- Test strategy: [docs/testing.md](docs/testing.md)
 
-## Reducers (token-efficient)
+## Documentation map
 
-`tools/reducers/` provides pure functions used by both agents to keep prompt tokens low:
-`policy_guard`, `approval_comment_builder`, `error_classifier`, `log_clusterer`, `repo_indexer`,
-`resource_discovery`, `schema_fingerprint`, `sql_template_router`, `tool_cache`, `artifact_packager`.
+| Topic | Doc |
+|---|---|
+| Usage and commands | [docs/usage.md](docs/usage.md) |
+| Architecture | [docs/architecture.md](docs/architecture.md) |
+| Development | [docs/development.md](docs/development.md) |
+| Safety and approvals | [docs/safety.md](docs/safety.md) |
+| Memory and self-correction | [docs/memory-and-self-correction.md](docs/memory-and-self-correction.md) |
+| Agents | [docs/agents.md](docs/agents.md) |
+| Tools and reducers | [docs/tools.md](docs/tools.md) |
+| Testing | [docs/testing.md](docs/testing.md) |
+| Release process | [docs/release-process.md](docs/release-process.md) |
 
-## Tests & CI
+## Contributing
 
-- `tests/safety/test_policy_guard.py` — deny / approval / allow paths.
-- `tests/memory/test_lesson_roundtrip.py` — JSONL write + retrieve.
-- `tests/test_smoke_e2e.py` — Architect plan -> policy_guard -> Builder execute -> lesson persistence.
-- `tests/test_core_contracts.py` — `tools.core.contracts` invariants.
+See [CONTRIBUTING.md](CONTRIBUTING.md). Large changes should start with a short design discussion in an issue before implementation.
 
-CI (`.github/workflows/ci.yml`) runs `ruff check .` then `pytest -q` on every push.
+## Status and roadmap
+
+Pre-release. Public surface: Architect/Builder runtime, safety stack, memory store, reducers, GCP and integration tool wrappers (varying maturity). Roadmap and stubs are marked in [docs/architecture.md](docs/architecture.md).
+
+## Security, support, conduct
+
+- Vulnerability reporting: [SECURITY.md](SECURITY.md)
+- Support channels: [SUPPORT.md](SUPPORT.md)
+- Community standards: [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md)
+
+## License
+
+License intent not yet declared. Maintainer to confirm before public adoption.
