@@ -1,0 +1,39 @@
+{
+  "version": 1,
+  "deny": [
+    {"action": "bq.delete_dataset", "reason": "Datasets must be deleted manually by an admin"},
+    {"action": "iam.remove_owner", "reason": "Owner removal is forbidden via agents"},
+    {"action": "billing.disable", "reason": "Billing changes forbidden"}
+  ],
+  "require_approval": [
+    "bq.delete_table",
+    "bq.alter_schema",
+    "bq.write_truncate",
+    "gcs.delete_object",
+    "gcs.set_iam",
+    "iam.set_policy",
+    "iam.add_binding",
+    "composer.deploy_dag",
+    "composer.delete_dag",
+    "dataflow.cancel_job",
+    "git.push_force",
+    "git.delete_branch",
+    "pr.merge",
+    "email.send",
+    "slack.post",
+    "public.publish"
+  ],
+  "allow": [
+    "bq.query_dry_run",
+    "bq.read",
+    "gcs.read",
+    "repo.read",
+    "memory.read",
+    "memory.write"
+  ],
+  "blast_radius_thresholds": {
+    "rows_affected": 10000,
+    "bytes_affected": 1073741824,
+    "objects_affected": 100
+  }
+}
