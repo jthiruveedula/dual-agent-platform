@@ -18,6 +18,23 @@ from tools.reducers.policy_guard import evaluate_action
 
 def execute_task(task: dict) -> dict:
   action = {"type": task.get("action_type", "repo.read"), "target": task.get("id")}
+      # GCP Dry-Run & Pre-Validation Pattern: BQ steps must dry-run first.
+    if task.get("action_type") in {"bq.read", "bq.write", "bq_run_query"} and task.get("sql"):
+        try:
+            from tools.gcp.bq_dry_run import bq_dry_run_query
+            from tools.safety.bq_pre_validate import is_mutating_bq_query
+            dry = bq_dry_run_query(task["sql"], project=task.get("project", ""))
+            if not dry.ok or not dry.evidence.get("valid", False):
+                return {
+                    "task_id": task["id"],
+                    "status": "dry_run_failed",
+                    "reason": dry.evidence.get("error"),
+                    "dry_run": dry.evidence,
+                }
+            action["dry_run"] = dry.evidence
+            action["mutating"] = is_mutating_bq_query(task["sql"])
+        except Exception as exc:  # noqa: BLE001
+            return {"task_id": task["id"], "status": "dry_run_error", "reason": str(exc)}
   decision = evaluate_action(action)
   if decision["decision"] == "deny":
     return {"task_id": task["id"], "status": "denied", "reason": decision.get("reason")}
